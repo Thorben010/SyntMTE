@@ -86,7 +86,7 @@
 
 ## 🏃‍♂️ Quick Start
 
-The primary way to run this project is via the `src/main.py` script, which is conveniently wrapped by `run.bash`.
+The primary way to run this project is via the `src/main.py` script.
 
 
 ### Custom Training
