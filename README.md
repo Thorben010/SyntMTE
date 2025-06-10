@@ -146,7 +146,7 @@ python3 src/main.py \
 If you use this work in your research, please cite our paper:
 
 ```bibtex
-@article{Prein2024SyntMTE,
+@article{Prein2025SyntMTE,
   author    = {Prein, Thorben and Pan, Elton and Jehkul, Janik and Weinmann, Steffen and Olivetti, Elsa A. and Rupp, Jennifer L. M.},
   title     = {Language Models Enable Data-Augmented Synthesis Planning for Inorganic Materials},
   journal   = {ACS Applied Materials & Interfaces},
