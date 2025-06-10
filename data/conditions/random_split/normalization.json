@@ -1,0 +1,22 @@
+{
+  "Sintering Temperature": {
+    "mean": 1184.2982926110906,
+    "std": 255.29218829617406,
+    "use_log": false
+  },
+  "Sintering Time": {
+    "mean": 11.331315616500287,
+    "std": 10.516021237211037,
+    "use_log": false
+  },
+  "Calcination Temperature": {
+    "mean": 968.4881846757587,
+    "std": 250.08714896983489,
+    "use_log": false
+  },
+  "Calcination Time": {
+    "mean": 10.57596860832547,
+    "std": 9.934440862585252,
+    "use_log": false
+  }
+}

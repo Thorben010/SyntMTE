@@ -1,0 +1,12 @@
+*.pth
+*.txt
+*.png
+*.db
+*.out
+*.joblib
+*.log
+*.csv
+*.json
+*.jsonl
+/.venv
+*.pyc
