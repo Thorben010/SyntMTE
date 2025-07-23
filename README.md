@@ -120,9 +120,11 @@ python3 src/main.py \
     --embedder_type MTEncoder \
     --aggregation_mode "mean" \
     --dataset data/conditions/random_split \
-    --predict_dataset "data/conditions/random_split/test.csv" \
+    --predict_dataset "data/conditions/inference/example_inference.csv" \
     --checkpoint_path path_to_trained_model
 ```
+
+You can find the prediction results in the `logs/` directory.
 
 ## 📂 Flag Descriptions
 <details>

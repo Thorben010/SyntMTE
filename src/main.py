@@ -112,7 +112,7 @@ def get_trainer_config(  # pylint: disable=too-many-arguments
         "base_lr": learning_rate,
         "max_lr": learning_rate * 1000,
         "cyclic_mode": "triangular",
-        "log_dir": "/home/thor/code/synth_con_pred/logs/",
+        "log_dir": os.path.join(os.getcwd(), "logs/"),
     }
 
 
