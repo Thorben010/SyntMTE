@@ -8,6 +8,7 @@ import numpy as np
 from pymatgen.core.composition import Composition
 from skbio.stats.composition import multiplicative_replacement, clr
 from torch.utils.data import Dataset
+from pathlib import Path  # Added for dynamic path resolution
 
 #sys.path.append('/home/thor/code/synth_con_pred')
 from src.crabnet import CrabNet
@@ -61,16 +62,20 @@ class CompositionMLP(nn.Module):  # pylint: disable=too-many-instance-attributes
         # self.precursor_dict = train_dataset.precursor_dict
 
         self.embedder_type = model_config["embedder_type"]
+
+        # Dynamically resolve the path to the "model_weights" directory, assumed to be
+        # located at the project root (two levels up from this file).
+        mte_path = Path(__file__).resolve().parents[2] / "model_weights"
+        mte_path = str(mte_path)
+
         # Safer way to check for mtencoder_path
         if self.embedder_type == "MTEncoder":
-            mte_path = "/home/thor/code/synth_con_pred/model_weights"
             loaded_config = look_json_from_path(mte_path)
             config = get_config(loaded_config)
             self.mtencoder = MTEncoder(config)
             self.mtencoder.device = self.device
             self.mtencoder_wrapper = MTEncoder_model(self.mtencoder, mte_path)
-        if self.embedder_type == "CrabNet":
-            mte_path = "/home/thor/code/synth_con_pred/model_weights"
+        elif self.embedder_type == "CrabNet":
             loaded_config = look_json_from_path(mte_path)
             config = get_config(loaded_config)
             self.mtencoder = CrabNet(config)
