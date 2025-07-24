@@ -56,7 +56,6 @@
 ## 🛠️ Installation
 
 ### Prerequisites
-- Python 3.9 or higher
 - A virtual environment manager like `uv` or `conda`
 
 ### Setup Instructions
@@ -69,7 +68,7 @@
 
 2.  **Create and activate environment** (using `uv`)
     ```bash
-    uv venv
+    uv venv --python 3.11.13
     source .venv/bin/activate
     ```
 
