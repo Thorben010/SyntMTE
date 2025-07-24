@@ -250,8 +250,12 @@ class Trainer:
             # Set the model back to training mode after evaluation
             self.model.train()
 
+        # Ensure checkpoint tensors are loaded onto the same device as the model.
         self.model.load_state_dict(
-            torch.load(os.path.join(self.log_dir, "best_model.pth"))
+            torch.load(
+                os.path.join(self.log_dir, "best_model.pth"),
+                map_location=self.model.device,
+            )
         )
         train_score = self.eval(self.train_loader)
         self.log_metrics(

@@ -25,11 +25,22 @@ from models.composition_mlp import CompositionMLP
 from trainer import Trainer
 from utils import custom_collate_fn
 
-# get list of GPUs, pick the one with the smallest memoryUsed
-gpu = min(GPUtil.getGPUs(), key=lambda g: g.memoryUsed)
-os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu.id)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f"Using GPU {gpu.id}, memoryUsed={gpu.memoryUsed}MB")
+# Determine computing device -------------------------------------------------
+# Try to find an idle GPU; if none is available, fall back to CPU. This makes
+# the script runnable on machines without a CUDA-capable GPU (e.g. laptops).
+
+gpus = GPUtil.getGPUs()
+
+if gpus:
+    # Pick the GPU with the least memory currently used
+    gpu = min(gpus, key=lambda g: g.memoryUsed)
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu.id)
+    device = torch.device("cuda:0")
+    print(f"Using GPU {gpu.id}, memoryUsed={gpu.memoryUsed} MB")
+else:
+    gpu = None  # No GPU available
+    device = torch.device("cpu")
+    print("No GPU detected – falling back to CPU.")
 
 
 class AleatoricLoss(nn.Module):
@@ -71,7 +82,8 @@ def get_model_config(
         "hidden_dim": 512,
         "embedder_type": embedder_type,
         "input_dim": input_dim,
-        "device": "cuda:0",
+        # Use the detected device ("cuda:0" or "cpu")
+        "device": "cuda:0" if torch.cuda.is_available() else "cpu",
         "aggregation_mode": aggregation_mode,
     }
 

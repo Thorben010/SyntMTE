@@ -147,7 +147,8 @@ class MTEncoder_model:
             return json.load(f)
 
     def load_network(self, path):
-        network = torch.load(path, weights_only=True)
+        # Ensure the checkpoint tensors are loaded onto the same device as the model
+        network = torch.load(path, map_location=self.model.device, weights_only=True)
         filtered_state_dict = {
             k: v for k, v in network["weights"].items() if "output_nn" not in k
         }
