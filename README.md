@@ -77,20 +77,40 @@
     uv pip install -r requirements.txt
     ```
 
-4. **Download MTEncoder Checkpoint**
+4. **Download pertrained MTEncoder Checkpoint**
     The MTEncoder model uses pre-trained weights from a dedicated Hugging Face repository. Clone the repository into the `model_weights` directory:
     ```bash
     git clone https://huggingface.co/thor1/MTEncoder_alexandria model_weights
     ```
+
+5. **Download SyntMTE model weights**
+    In order to run inference without training your own model: Clone the repository into the `SyntMTE_001` directory:
+    ```bash
+    git clone https://huggingface.co/thor1/SyntMTE_001
+    ```
+
 
 ## 🏃‍♂️ Quick Start
 
 The primary way to run this project is via the `src/main.py` script.
 
 
+### Inference
+To run inference on your own data, simply replace `example_inference.csv` with the path to your custom CSV file.
+
+```bash
+python3 src/main.py \
+    --mode "predict" \
+    --embedder_type MTEncoder \
+    --aggregation_mode "mean" \
+    --predict_dataset "data/conditions/inference/example_inference.csv" \
+    --checkpoint_path 'SyntMTE_001/best_model.pth'
+```
+
+
 ### Custom Training
 
-You can customize runs by calling `src/main.py` directly. This allows you to specify the model, dataset, and other hyperparameters.
+You can customize runs by calling `src/main.py` directly. This allows you to specify the model, dataset, and other hyperparameters. Also keep in mind which default parameter choices are set.
 
 ```bash
 python3 src/main.py \
@@ -108,19 +128,6 @@ python3 src/main.py \
     --embedder_type MTEncoder \
     --aggregation_mode "mean" \
     --dataset data/conditions/random_split
-```
-
-
-### Inference
-
-```bash
-python3 src/main.py \
-    --mode "predict" \
-    --embedder_type MTEncoder \
-    --aggregation_mode "mean" \
-    --dataset data/conditions/random_split \
-    --predict_dataset "data/conditions/inference/example_inference.csv" \
-    --checkpoint_path path_to_trained_model
 ```
 
 You can find the prediction results in the `logs/` directory.
