@@ -83,8 +83,8 @@
     git clone https://huggingface.co/thor1/MTEncoder_alexandria model_weights
     ```
 
-5. **Download SyntMTE model weights**
-    In order to run inference without training your own model: Clone the repository into the `SyntMTE_001` directory:
+5. **Download SyntMTE Model Weights**
+    In order to run inference without training your own model, clone the repository into the `SyntMTE_001` directory:
     ```bash
     git clone https://huggingface.co/thor1/SyntMTE_001
     ```
