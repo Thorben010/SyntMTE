@@ -1,4 +1,4 @@
-from mtencoder import MTEncoder
+from .mtencoder import MTEncoder
 import torch
 import json
 import os
@@ -8,6 +8,9 @@ from pymatgen.core import Composition
 class MTEncoder_model:
     def __init__(self, mtencoder, config_path):
         self.model = mtencoder
+        # Ensure the wrapped model always has a `device` attribute
+        if not hasattr(self.model, "device"):
+            self.model.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.look_pth_from_path(config_path)  # changed
         self.load_lookup()
 
