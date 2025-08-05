@@ -148,6 +148,13 @@ You can find the prediction results in the `logs/` directory.
 
 </details>
 
+
+### Debugging
+
+**Note:**  
+If you encounter an error such as "error 118" or issues related to `weights_only=True` when loading model weights from Hugging Face, it may be due to missing `.pth` files. This often happens if [Git LFS](https://git-lfs.github.com/) is not installed, which is required to download large files from Hugging Face repositories.  
+To resolve this, please ensure you have Git LFS installed and run `git lfs pull` in the repository directories to download all necessary model weight files.
+
 <a id="citation"></a>
 ## 📝 Citation
 
