@@ -10,7 +10,6 @@ import sys
 import time
 from datetime import datetime
 
-import GPUtil
 import numpy as np
 import optuna
 import torch
@@ -29,7 +28,11 @@ from utils import custom_collate_fn
 # Try to find an idle GPU; if none is available, fall back to CPU. This makes
 # the script runnable on machines without a CUDA-capable GPU (e.g. laptops).
 
-gpus = GPUtil.getGPUs()
+try:
+    import GPUtil  # optional
+    gpus = GPUtil.getGPUs()
+except Exception:
+    gpus = []
 
 if gpus:
     # Pick the GPU with the least memory currently used
@@ -73,8 +76,10 @@ def get_model_config(
     """
     input_dim = (
         512
-        if embedder_type in ["MTEncoder", "CrabNet"]
-        else 118 if embedder_type == "composition" else None
+        if embedder_type in ["MTEncoder", "CrabNet", "clr"]
+        else 118
+        if embedder_type == "composition"
+        else None
     )
     return {
         "num_layers": num_layers,
@@ -144,7 +149,7 @@ def objective(  # pylint: disable=too-many-arguments,too-many-locals
         args: Command line arguments
 
     Returns:
-        float: Validation F1 score
+        float: Validation MAE (lower is better).
     """
     num_layers = trial.suggest_int("num_layers", 1, 5)
     # dropout = trial.suggest_float('dropout', 0.0, 0.5)
@@ -177,10 +182,10 @@ def objective(  # pylint: disable=too-many-arguments,too-many-locals
         [embedder_type, args.dataset],
         use_target_only=use_target_only,
     )
-    val_f1 = trainer.train(
+    val_mae = trainer.train(
         epochs=trainer_config["epochs"], eval_interval=1, get_best=False
     )
-    return val_f1
+    return val_mae
 
 
 def load_checkpoint(model, checkpoint_path):
@@ -201,13 +206,13 @@ def load_checkpoint(model, checkpoint_path):
         return None
 
 
-def predict_dataset(predict_dataloader, scaling_params, trainer):
-    """Predict on a dataset."""
+def predict_dataset(trainer, predict_file, scaling_params, batch_size=4000):
+    """Predict on a dataset file path (explicit; no global args)."""
     pred_dataset = MaterialDataset(
-        file_path=args.predict_dataset, scaling_params=scaling_params, inference=True
+        file_path=predict_file, scaling_params=scaling_params, inference=True
     )
     predict_dataloader = DataLoader(
-        pred_dataset, batch_size=4000, shuffle=False, collate_fn=custom_collate_fn
+        pred_dataset, batch_size=batch_size, shuffle=False, collate_fn=custom_collate_fn
     )
     trainer.predict(predict_dataloader)
 
@@ -313,13 +318,13 @@ def main(args):  # pylint: disable=too-many-locals,redefined-outer-name
             model = load_checkpoint(model, args.checkpoint_path)
 
         if args.mode == "predict":
-            predict_dataset(trainer, scaling_params, trainer)
+            predict_dataset(trainer, args.predict_dataset, scaling_params)
 
         else:
             _metrics = trainer.train(
                 epochs=trainer_config["epochs"], eval_interval=1, get_best=False
             )
-            predict_dataset(trainer, scaling_params, trainer)
+            predict_dataset(trainer, args.predict_dataset, scaling_params)
 
     else:
         print("Invalid mode. Please use 'train', 'tune', or 'predict'.")
@@ -394,7 +399,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--predict_dataset",
         type=str,
-        default="data/conditions/random_split/test.csv",
+        default="data/conditions/inference/example_inference.csv",
         help="Path to the dataset to predict.",
     )
 
