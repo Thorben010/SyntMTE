@@ -31,3 +31,8 @@ uv.lock
 # macOS
 .DS_Store
 
+
+# Model weights and experiments
+model_weights/
+SyntMTE_001/
+logs/
