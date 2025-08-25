@@ -1,0 +1,23 @@
+[project]
+name = "syntmten"
+version = "0.1.0"
+description = "Training, tuning, and prediction with the CompositionMLP model"
+requires-python = ">=3.9"
+
+dependencies = [
+    "gputil>=1.4.0",
+    "numpy>=2.0.2",
+    "optuna>=4.5.0",
+    "pandas>=2.3.2",
+    "pymatgen>=2024.8.9",
+    "scikit-bio>=0.7.0",
+    "scikit-learn>=1.6.1",
+    "termcolor>=3.1.0",
+    "torch>=2.8.0",
+    "torchviz>=0.0.3",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
