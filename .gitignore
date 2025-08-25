@@ -1,12 +1,28 @@
-*.pth
-*.txt
-*.png
-*.db
-*.out
-*.joblib
-*.log
-*.csv
-*.json
-*.jsonl
-/.venv
+# Python
+__pycache__/
 *.pyc
+
+# Virtual env
+.venv/
+
+# Model weights and artifacts
+*.pth
+*.joblib
+*.out
+*.log
+
+# Experiment databases
+*.db
+
+# Datasets (too large for git, keep in /data)
+data/**/*.csv
+data/**/*.jsonl
+
+# BUT keep configs like normalization.json
+!data/**/normalization.json
+
+# Figures - optional (ignore generated, but allow docs)
+figures/**/*.png
+
+# Lock files
+uv.lock
