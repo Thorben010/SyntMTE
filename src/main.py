@@ -93,8 +93,8 @@ def get_trainer_config(  # pylint: disable=too-many-arguments
     train_dataset,
     val_dataset,
     test_dataset,
-    batch_size=3**2,
-    learning_rate=0.00001,
+    batch_size=5**2,
+    learning_rate=0.0000439204,
 ):
     """Get trainer configuration.
 
@@ -212,6 +212,57 @@ def predict_dataset(predict_dataloader, scaling_params, trainer):
     trainer.predict(predict_dataloader)
 
 
+# ----------------------------------------------------------------------------
+# Utility helpers for checkpoint-based model reconstruction
+# ----------------------------------------------------------------------------
+
+
+def load_model_config_from_checkpoint(checkpoint_path):
+    """Load the ``model_config.json`` that lives next to a saved checkpoint.
+
+    When a model is trained with ``Trainer`` the hyper-parameters that were
+    actually used are stored in a JSON file in the same *log* directory as the
+    checkpoint weights.  This helper looks for that file and returns the
+    contents so that the model can be rebuilt **exactly** as it was during
+    training.
+
+    If the file cannot be found an empty dict is returned so that the caller
+    can fall back to the CLI options.
+
+    Notes
+    -----
+    The ``device`` entry is overwritten to match the current hardware so that
+    a checkpoint trained on GPU can be restored on a CPU-only machine and vice
+    versa.
+    """
+
+    if not checkpoint_path:
+        return {}
+
+    checkpoint_dir = os.path.dirname(checkpoint_path)
+    config_path = os.path.join(checkpoint_dir, "model_config.json")
+
+    if not os.path.exists(config_path):
+        print(
+            f"Warning: Could not find 'model_config.json' next to the checkpoint (looked in {config_path}). "
+            "Falling back to command line options."
+        )
+        return {}
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            model_config = json.load(f)
+
+        # Ensure the device entry reflects the current environment
+        model_config["device"] = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+        print(f"Loaded model configuration from {config_path}.")
+        return model_config
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        print(f"Error loading model configuration from {config_path}: {exc}. Using CLI defaults instead.")
+        return {}
+
+
 def main(args):  # pylint: disable=too-many-locals,redefined-outer-name
     """Main function to run training or hyperparameter tuning.
 
@@ -271,9 +322,20 @@ def main(args):  # pylint: disable=too-many-locals,redefined-outer-name
         print("Best hyperparameters: ", study.best_params)
 
     elif args.mode in ("train", "predict"):
-        model_config = get_model_config(
-            args.embedder_type, aggregation_mode=args.aggregation_mode
-        )
+        # ------------------------------------------------------------------
+        # Build the model configuration.  If a checkpoint is provided we try
+        # to recover the original hyper-parameters from the accompanying JSON
+        # file so that the reconstructed model matches the saved weights.
+        # ------------------------------------------------------------------
+
+        model_config = load_model_config_from_checkpoint(args.checkpoint_path)
+
+        if not model_config:  # Fallback to CLI options
+            model_config = get_model_config(
+                args.embedder_type,
+                aggregation_mode=args.aggregation_mode,
+            )
+
         model = CompositionMLP(model_config)
 
         # --- Dummy forward pass to initialize lazy layers ---
@@ -312,13 +374,17 @@ def main(args):  # pylint: disable=too-many-locals,redefined-outer-name
         if args.checkpoint_path:
             model = load_checkpoint(model, args.checkpoint_path)
 
-        if args.mode == "predict":
-            predict_dataset(trainer, scaling_params, trainer)
-
-        else:
+        if args.mode == "train":
+            print("Starting training...")
             _metrics = trainer.train(
                 epochs=trainer_config["epochs"], eval_interval=1, get_best=False
             )
+
+            # After training, optionally run predictions on the test set or a user-specified dataset
+            predict_dataset(trainer, scaling_params, trainer)
+
+        else:  # args.mode == "predict"
+            print("Predicting dataset...")
             predict_dataset(trainer, scaling_params, trainer)
 
     else:
@@ -376,7 +442,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint_path",
         type=str,
-        default="",
+        default="/home/thor/code/SyntMTE_public/SyntMTE_001/best_model.pth",
         help="Path to load model checkpoint from.",
     )
     parser.add_argument(
@@ -394,7 +460,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--predict_dataset",
         type=str,
-        default="data/conditions/random_split/test.csv",
+        default="/home/thor/code/SyntMTE_public/data/conditions/new_dataset/test.csv",
         help="Path to the dataset to predict.",
     )
 

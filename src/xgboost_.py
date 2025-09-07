@@ -1,10 +1,10 @@
+# Standard library / third-party imports
 import os
 import joblib
 import argparse
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
-from sklearn.model_selection import RandomizedSearchCV
 from pymatgen.core import Composition
 from tqdm import tqdm
 from pymatgen.core.periodic_table import Element
@@ -137,6 +137,22 @@ ELEMENT_MAP = {el: i for i, el in enumerate(ALL_ELEMENTS)}
 N_ELEMENTS = len(ALL_ELEMENTS)
 
 
+# -----------------------------------------------------------------------------
+# Reasonable default XGBoost hyper-parameters (tuned once offline)
+# -----------------------------------------------------------------------------
+
+DEFAULT_XGB_PARAMS = {
+    "n_estimators": 300,
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "gamma": 0.0,
+    "reg_alpha": 0.0,
+    "reg_lambda": 1.0,
+}
+
+
 def featurize_composition(formula_str: str) -> np.ndarray:
     """Converts a chemical formula string into a fixed-size feature vector."""
     feature_vector = np.zeros(N_ELEMENTS)
@@ -222,11 +238,10 @@ def load_and_featurize_data(file_path: str, use_precursor: bool = False):
     print(f"  [Debug] Feature matrix shape: {X.shape}")
 
     # Extract targets and mask
+    # Only predict temperatures (times are no longer targets)
     target_cols = [
         "Sintering Temperature",
-        "Sintering Time",
         "Calcination Temperature",
-        "Calcination Time",
     ]
     y = df[target_cols].values
     mask = df[target_cols].notna().astype(int).values
@@ -241,8 +256,6 @@ def train_evaluate_xgboost(
     test_path,
     log_dir,
     random_state_seed=None,
-    n_iter_search=10,
-    cv_search=3,
     use_precursor: bool = False,
 ):
     """
@@ -306,9 +319,7 @@ def train_evaluate_xgboost(
     run_best_hyperparams = {}  # To store best HPs for this run's targets
     target_names_map = {
         "Sintering Temperature": "sint_temp",
-        "Sintering Time": "sint_time",
         "Calcination Temperature": "calc_temp",
-        "Calcination Time": "calc_time",
     }
     target_names = [target_names_map[col] for col in target_cols]
 
@@ -350,78 +361,17 @@ def train_evaluate_xgboost(
         if len(X_val_masked) == 0:
             print(f"  Warning: No validation data for {col_name}, training without early stopping.")
 
+        # Log dataset sizes
         print(
-            f"Training samples for HPO: {len(X_train_masked)}, "
+            f"Training samples: {len(X_train_masked)}, "
             f"Validation samples for early stopping: {len(X_val_masked)}"
         )
 
-        # Define the parameter grid for RandomizedSearchCV
-        param_dist = {
-            "n_estimators": [100, 200, 300, 500, 700, 1000],
-            "learning_rate": [0.01, 0.05, 0.1, 0.2],
-            "max_depth": [3, 4, 5, 6, 7, 8],
-            "subsample": [0.6, 0.7, 0.8, 0.9, 1.0],
-            "colsample_bytree": [0.6, 0.7, 0.8, 0.9, 1.0],
-            "gamma": [0, 0.1, 0.2, 0.3],
-            "reg_alpha": [0, 0.001, 0.01, 0.1],
-            "reg_lambda": [1, 1.1, 1.2, 1.3],  # XGBoost default is 1 for L2
-        }
+        # Always use the predefined parameter set; HPO is disabled
+        best_params = DEFAULT_XGB_PARAMS.copy()
 
-        # Initialize XGBRegressor for HPO (early stopping is handled within 
-        # RandomizedSearchCV's fit if estimator supports it, or in the final fit)
-        xgb_reg_hpo = xgb.XGBRegressor(
-            objective="reg:absoluteerror",
-            random_state=random_state_seed,
-            n_jobs=-1,
-            # Early stopping for HPO needs to be handled carefully.
-            # If RandomizedSearchCV's fit uses eval_set and early_stopping_rounds, it's fine.
-            # Otherwise, we use a large number of estimators and rely on early 
-            # stopping in the *final* model training.
-            # For simplicity, let's use early stopping in the final training step post-HPO.
-        )
-
-        print(
-            f"  Starting RandomizedSearchCV for {col_name} "
-            f"(n_iter={n_iter_search}, cv={cv_search})..."
-        )
-        # Note: For RandomizedSearchCV with XGBoost, if you want early stopping 
-        # *during the search for each fold*,
-        # you'd typically pass fit_params to search.fit().
-        # Example: fit_params={'early_stopping_rounds': 10, 
-        #                      'eval_set': [[X_val_masked, y_val_masked]]}
-        # However, this applies the *same* validation set to all folds of the HPO CV, 
-        # which is not ideal.
-        # A more robust HPO would involve nested CV or using the validation set purely 
-        # for the *final* model's early stopping.
-        # Here, we'll perform HPO on (X_train_masked, y_train_masked) with CV, 
-        # then train a final model
-        # using (X_train_masked, y_train_masked) and early stopping against 
-        # (X_val_masked, y_val_masked).
-
-        search = RandomizedSearchCV(
-            estimator=xgb_reg_hpo,
-            param_distributions=param_dist,
-            n_iter=n_iter_search,
-            scoring="neg_mean_absolute_error",
-            cv=cv_search,
-            random_state=random_state_seed,
-            verbose=1,  # Set to higher for more output
-            n_jobs=-1,  # Use all available cores for HPO
-        )
-
-        search.fit(
-            X_train_masked, y_train_masked
-        )  # HPO is done on the training data partition
-        print(
-            f"  RandomizedSearchCV complete for {col_name}. "
-            f"Best params: {search.best_params_}"
-        )
-
-        # Train the final model for the current target with best HPO params and early stopping
-        best_params = search.best_params_
-        run_best_hyperparams[target_short_name] = (
-            best_params  # Store the best params for this target
-        )
+        # Store params for bookkeeping
+        run_best_hyperparams[target_short_name] = best_params
 
         xgb_regressor_final = xgb.XGBRegressor(
             objective="reg:absoluteerror",
@@ -530,24 +480,22 @@ if __name__ == "__main__":
         "--train-path",
         type=str,
         default="/home/thor/code/synth_con_pred/data/conditions/"
-        "random_split/train.csv",
+        "xgb_sim_training/train.csv",
     )
     parser.add_argument(
         "--val-path",
         type=str,
         default="/home/thor/code/synth_con_pred/data/conditions/"
-        "random_split/val.csv",
+        "xgb_sim_training/val.csv",
     )
     parser.add_argument(
         "--test-path",
         type=str,
         default="/home/thor/code/synth_con_pred/data/conditions/"
-        "random_split/test.csv",
+        "xgb_sim_training/test.csv",
     )
     parser.add_argument("--log-dir-base", type=str, default="logs/xgboost_runs")
     parser.add_argument("--num-runs", type=int, default=5)
-    parser.add_argument("--n-iter-search", type=int, default=20)
-    parser.add_argument("--cv-search", type=int, default=3)
     parser.add_argument(
         "--use-precursor",
         default=True,
@@ -570,8 +518,6 @@ if __name__ == "__main__":
             args.test_path,
             log_dir,
             random_state_seed=i,
-            n_iter_search=args.n_iter_search,
-            cv_search=args.cv_search,
             use_precursor=args.use_precursor,
         )
         all_run_metrics.append(metrics)

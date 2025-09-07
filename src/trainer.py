@@ -209,7 +209,7 @@ class Trainer:
                 )
 
                 # Total loss
-                loss = loss_calc_temp + loss_calc_time
+                loss = loss_calc_temp + loss_sint_temp 
 
                 loss.backward()
                 self.optimizer.step()
@@ -362,21 +362,39 @@ class Trainer:
                 )
 
                 # Total loss
-                loss = loss_calc_temp + loss_calc_time
+                loss = loss_calc_temp + loss_sint_temp 
 
                 total_loss += loss.item()
                 total_samples += len(mat)
 
-                # Store predictions and targets
+                # Store predictions and targets **only where the mask indicates a valid value**
+                key_to_idx = {
+                    "Sintering Temperature": 0,
+                    "Sintering Time": 1,
+                    "Calcination Temperature": 2,
+                    "Calcination Time": 3,
+                }
+
                 for key, pred, target in [
                     ("Sintering Temperature", pred_sint_temp, sint_temp_tensor),
                     ("Sintering Time", pred_sint_time, sint_time_tensor),
                     ("Calcination Temperature", pred_calc_temp, calc_temp_tensor),
                     ("Calcination Time", pred_calc_time, calc_time_tensor),
                 ]:
-                    all_preds[key].extend(pred.cpu().numpy().tolist())
-                    all_targets[key].extend(target.cpu().numpy().tolist())
-                    all_targets["mat"].extend(mat)
+                    idx = key_to_idx[key]
+                    # Boolean mask for current target availability
+                    valid_mask = mask[:, idx].bool().cpu()
+
+                    if valid_mask.any():
+                        # Select only the valid entries
+                        valid_preds = pred.detach().cpu()[valid_mask].numpy().tolist()
+                        valid_targets = target.detach().cpu()[valid_mask].numpy().tolist()
+
+                        all_preds[key].extend(valid_preds)
+                        all_targets[key].extend(valid_targets)
+
+                # append material identifiers once per sample
+                all_targets["mat"].extend(mat)
 
                 # Plot parity plots
                 # self._plot_parity_plots(all_targets, all_preds)
