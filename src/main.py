@@ -385,12 +385,13 @@ def main(args):  # pylint: disable=too-many-locals,redefined-outer-name
                 epochs=trainer_config["epochs"], eval_interval=1, get_best=False
             )
 
-            # After training, optionally run predictions on the test set or a user-specified dataset
-            predict_dataset(trainer, scaling_params, trainer)
+            # After training, optionally run predictions on the provided --predict_dataset file
+            predict_file = args.predict_dataset or os.path.join(dataset_dir, "test.csv")
+            predict_dataset(trainer, predict_file, scaling_params)
 
         else:  # args.mode == "predict"
             print("Predicting dataset...")
-            predict_dataset(trainer, scaling_params, trainer)
+            predict_dataset(trainer, args.predict_dataset, scaling_params)
 
     else:
         print("Invalid mode. Please use 'train', 'tune', or 'predict'.")
